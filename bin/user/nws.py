@@ -21,7 +21,7 @@ import weewx.drivers
 import weeutil.weeutil
 
 DRIVER_NAME = 'NWS'
-DRIVER_VERSION = "2022.01.22"
+DRIVER_VERSION = "2022.01.24"
 
 
 def loader(config_dict, engine):
@@ -65,7 +65,10 @@ class NWS(weewx.drivers.AbstractDevice):
             'windSpeed'  : get_observation('windSpeed'),
             'windDir'    : get_observation('windDirection'),
             'windGust'   : get_observation('windGust'),
-            'outHumidity': get_observation('relativeHumidity')
+            'outHumidity': get_observation('relativeHumidity'),
+            'dewpoint'   : get_observation('dewpoint'),
+            'windchill'  : get_observation('windChill'),
+            'heatindex'  : get_observation('headIndex')
         }
 
     def genLoopPackets(self):
@@ -95,8 +98,11 @@ def get_observation(obs):
         'barometricPressure':  data['properties']['barometricPressure']['value']/100,
         'windSpeed':           data['properties']['windSpeed']['value'],
         'windDirection':       data['properties']['windDirection']['value'],
-        'windGust':       data['properties']['windGust']['value'],
-        'outHumidity':         data['properties']['relativeHumidity']['value']
+        'windGust':            data['properties']['windGust']['value'],
+        'outHumidity':         data['properties']['relativeHumidity']['value'],
+        'dewpoint':            data['properties']['dewpoint']['value'],
+        'windChill':           data['properties']['windChill']['value'],
+        'heatIndex':           data['properties']['heatIndex']['value']
     }
     return(dict.get(obs))
 
