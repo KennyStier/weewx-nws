@@ -16,7 +16,7 @@ import requests
 import json
 import time
 import dateutil.parser
-import subprocess as sp
+import pytz
 
 import weewx.drivers
 import weeutil.weeutil
@@ -54,14 +54,14 @@ class NWS(weewx.drivers.AbstractDevice):
 
         while True:
 
-            _packet = {'dateTime': int(time.time()),
+            _packet = {'dateTime': get_observation('timestamp'),
                        'usUnits' : weewx.METRIC }
             for obs_type in self.observations:
                 _packet[obs_type] = self.observations[obs_type]
             yield _packet
 
             # Poll for updates
-            lastUpdated = get_observation('timestamp')
+            lastUpdated = _packet['dateTime']
             time.sleep(60)
 
             while lastUpdated == get_observation('timestamp'):
@@ -89,7 +89,7 @@ def get_observation(obs):
         'windChill':             data['properties']['windChill']['value'],
         'heatIndex':             data['properties']['heatIndex']['value'],
         'precipitationLastHour': data['properties']['precipitationLastHour']['value']*100 if isinstance(data['properties']['precipitationLastHour']['value'],(int,float)) else None,
-        'timestamp':             time.mktime(dateutil.parser.parse(data['properties']['timestamp']).timetuple())
+        'timestamp':             int(time.mktime(dateutil.parser.parse(data['properties']['timestamp']).astimezone(pytz.timezone('America/Indianapolis')).timetuple()))
 
     }
     return(obsmap.get(obs))
