@@ -68,7 +68,7 @@ class NWS(weewx.drivers.AbstractDevice):
             'outHumidity': get_observation('relativeHumidity'),
             'dewpoint'   : get_observation('dewpoint'),
             'windchill'  : get_observation('windChill'),
-            'heatindex'  : get_observation('headIndex')
+            'heatindex'  : get_observation('heatIndex')
         }
 
     def genLoopPackets(self):
@@ -99,7 +99,7 @@ def get_observation(obs):
         'windSpeed':           data['properties']['windSpeed']['value'],
         'windDirection':       data['properties']['windDirection']['value'],
         'windGust':            data['properties']['windGust']['value'],
-        'outHumidity':         data['properties']['relativeHumidity']['value'],
+        'relativeHumidity':    data['properties']['relativeHumidity']['value'],
         'dewpoint':            data['properties']['dewpoint']['value'],
         'windChill':           data['properties']['windChill']['value'],
         'heatIndex':           data['properties']['heatIndex']['value']
