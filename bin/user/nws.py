@@ -7,7 +7,6 @@
 #
 #    See the file LICENSE.txt for your full rights.
 #
-"""Console simulator for the weewx weather system"""
 
 from __future__ import with_statement
 from __future__ import absolute_import
@@ -16,6 +15,8 @@ from urllib import response
 import requests
 import json
 import time
+import dateutil.parser
+import subprocess as sp
 
 import weewx.drivers
 import weeutil.weeutil
@@ -32,43 +33,21 @@ def loader(config_dict, engine):
 
 
 class NWS(weewx.drivers.AbstractDevice):
-    """Station simulator"""
     
     def __init__(self, **stn_dict):
-        """Initialize the simulator
         
-        NAMED ARGUMENTS:
-        
-        loop_interval: The time (in seconds) between emitting LOOP packets.
-        [Optional. Default is 2.5]
-        
-        start_time: The start (seed) time for the generator in unix epoch time
-        [Optional. If 'None', or not present, then present time will be used.]
-
-        resume_time: The start time for the loop.
-        [Optional. If 'None', or not present, then start_time will be used.]
-        
-        mode: Controls the frequency of packets.  One of either:
-            'simulator': Real-time simulator - sleep between LOOP packets
-            'generator': Emit packets as fast as possible (useful for testing)
-        [Required. Default is simulator.]
-
-        observations: Comma-separated list of observations that should be
-                      generated.  If nothing is specified, then all
-                      observations will be generated.
-        [Optional. Default is not defined.]
-        """
-
         self.observations = {
             'outTemp'    : get_observation('temperature'),
             'barometer'  : get_observation('barometricPressure'),
+            'pressure'  : get_observation('seaLevelPressure'),
             'windSpeed'  : get_observation('windSpeed'),
             'windDir'    : get_observation('windDirection'),
             'windGust'   : get_observation('windGust'),
             'outHumidity': get_observation('relativeHumidity'),
             'dewpoint'   : get_observation('dewpoint'),
             'windchill'  : get_observation('windChill'),
-            'heatindex'  : get_observation('heatIndex')
+            'heatindex'  : get_observation('heatIndex'),
+            'rain'       : get_observation('precipitationLastHour')
         }
 
     def genLoopPackets(self):
@@ -81,7 +60,12 @@ class NWS(weewx.drivers.AbstractDevice):
                 _packet[obs_type] = self.observations[obs_type]
             yield _packet
 
-        time.sleep(60)
+            # Poll for updates
+            lastUpdated = get_observation('timestamp')
+            time.sleep(60)
+
+            while lastUpdated == get_observation('timestamp'):
+                time.sleep(60)
 
     @property
     def hardware_name(self):
@@ -90,46 +74,38 @@ class NWS(weewx.drivers.AbstractDevice):
 def get_observation(obs):
 
     url = "https://api.weather.gov/stations/KLAF/observations/latest"
-    r = requests.get(url)
+    r = requests.get(url, timeout=30)
 
     data = r.json()
-    dict={
-        'temperature':         data['properties']['temperature']['value'],
-        'barometricPressure':  data['properties']['barometricPressure']['value']/100,
-        'windSpeed':           data['properties']['windSpeed']['value'],
-        'windDirection':       data['properties']['windDirection']['value'],
-        'windGust':            data['properties']['windGust']['value'],
-        'relativeHumidity':    data['properties']['relativeHumidity']['value'],
-        'dewpoint':            data['properties']['dewpoint']['value'],
-        'windChill':           data['properties']['windChill']['value'],
-        'heatIndex':           data['properties']['heatIndex']['value']
+    obsmap={
+        'temperature':           data['properties']['temperature']['value'],
+        'barometricPressure':    data['properties']['barometricPressure']['value']/100 if isinstance(data['properties']['barometricPressure']['value'],(int,float)) else None,
+        'seaLevelPressure':      data['properties']['seaLevelPressure']['value']/100 if isinstance(data['properties']['seaLevelPressure']['value'],(int,float)) else None,
+        'windSpeed':             data['properties']['windSpeed']['value'],
+        'windDirection':         data['properties']['windDirection']['value'],
+        'windGust':              data['properties']['windGust']['value'],
+        'relativeHumidity':      data['properties']['relativeHumidity']['value'],
+        'dewpoint':              data['properties']['dewpoint']['value'],
+        'windChill':             data['properties']['windChill']['value'],
+        'heatIndex':             data['properties']['heatIndex']['value'],
+        'precipitationLastHour': data['properties']['precipitationLastHour']['value']*100 if isinstance(data['properties']['precipitationLastHour']['value'],(int,float)) else None,
+        'timestamp':             time.mktime(dateutil.parser.parse(data['properties']['timestamp']).timetuple())
+
     }
-    return(dict.get(obs))
+    return(obsmap.get(obs))
 
 
 def confeditor_loader():
-    return SimulatorConfEditor()
+    return NWSConfEditor()
 
 
-class SimulatorConfEditor(weewx.drivers.AbstractConfEditor):
+class NWSConfEditor(weewx.drivers.AbstractConfEditor):
     @property
     def default_stanza(self):
         return """
 [NWS]
-    # This section is for the weewx weather station simulator
-
-    # The time (in seconds) between LOOP packets.
-    loop_interval = 2.5
-
-    # The simulator mode can be either 'simulator' or 'generator'.
-    # Real-time simulator. Sleep between each LOOP packet.
-    mode = simulator
-    # Generator.  Emit LOOP packets as fast as possible (useful for testing).
-    #mode = generator
-
-    # The start time. Format is YYYY-mm-ddTHH:MM. If not specified, the default 
-    # is to use the present time.
-    #start = 2011-01-01T00:00
+    # Airport code of station to collect from
+    icao = KLAF
 
     # The driver to use:
     driver = weewx.drivers.nws
@@ -137,6 +113,6 @@ class SimulatorConfEditor(weewx.drivers.AbstractConfEditor):
 
 
 if __name__ == "__main__":
-    station = NWS(mode='simulator',loop_interval=2.0)
+    station = NWS()
     for packet in station.genLoopPackets():
         print(weeutil.weeutil.timestamp_to_string(packet['dateTime']), packet)
