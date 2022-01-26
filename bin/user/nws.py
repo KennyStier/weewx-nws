@@ -35,20 +35,8 @@ def loader(config_dict, engine):
 class NWS(weewx.drivers.AbstractDevice):
     
     def __init__(self, **stn_dict):
-        
-        self.observations = {
-            'outTemp'    : get_observation('temperature'),
-            'barometer'  : get_observation('barometricPressure'),
-            'pressure'  : get_observation('seaLevelPressure'),
-            'windSpeed'  : get_observation('windSpeed'),
-            'windDir'    : get_observation('windDirection'),
-            'windGust'   : get_observation('windGust'),
-            'outHumidity': get_observation('relativeHumidity'),
-            'dewpoint'   : get_observation('dewpoint'),
-            'windchill'  : get_observation('windChill'),
-            'heatindex'  : get_observation('heatIndex'),
-            'rain'       : get_observation('precipitationLastHour')
-        }
+
+        self.observations = ['outTemp','barometer','pressure','windSpeed','windDir','windGust','outHumidity','dewpoint','windchill','heatindex','rain']
 
     def genLoopPackets(self):
 
@@ -57,7 +45,7 @@ class NWS(weewx.drivers.AbstractDevice):
             _packet = {'dateTime': get_observation('timestamp'),
                        'usUnits' : weewx.METRIC }
             for obs_type in self.observations:
-                _packet[obs_type] = self.observations[obs_type]
+                _packet[obs_type] = get_observation(obs_type)
             yield _packet
 
             # Poll for updates
@@ -78,17 +66,17 @@ def get_observation(obs):
 
     data = r.json()
     obsmap={
-        'temperature':           data['properties']['temperature']['value'],
-        'barometricPressure':    data['properties']['barometricPressure']['value']/100 if isinstance(data['properties']['barometricPressure']['value'],(int,float)) else None,
-        'seaLevelPressure':      data['properties']['seaLevelPressure']['value']/100 if isinstance(data['properties']['seaLevelPressure']['value'],(int,float)) else None,
+        'outTemp':           data['properties']['temperature']['value'],
+        'barometer':    data['properties']['barometricPressure']['value']/100 if isinstance(data['properties']['barometricPressure']['value'],(int,float)) else None,
+        'pressure':      data['properties']['seaLevelPressure']['value']/100 if isinstance(data['properties']['seaLevelPressure']['value'],(int,float)) else None,
         'windSpeed':             data['properties']['windSpeed']['value'],
-        'windDirection':         data['properties']['windDirection']['value'],
+        'windDir':         data['properties']['windDirection']['value'],
         'windGust':              data['properties']['windGust']['value'],
-        'relativeHumidity':      data['properties']['relativeHumidity']['value'],
+        'outHumidity':      data['properties']['relativeHumidity']['value'],
         'dewpoint':              data['properties']['dewpoint']['value'],
-        'windChill':             data['properties']['windChill']['value'],
-        'heatIndex':             data['properties']['heatIndex']['value'],
-        'precipitationLastHour': data['properties']['precipitationLastHour']['value']*100 if isinstance(data['properties']['precipitationLastHour']['value'],(int,float)) else None,
+        'windchill':             data['properties']['windChill']['value'],
+        'heatindex':             data['properties']['heatIndex']['value'],
+        'rain': data['properties']['precipitationLastHour']['value']*100 if isinstance(data['properties']['precipitationLastHour']['value'],(int,float)) else None,
         'timestamp':             int(time.mktime(dateutil.parser.parse(data['properties']['timestamp']).astimezone(pytz.timezone('America/Indianapolis')).timetuple()))
 
     }
